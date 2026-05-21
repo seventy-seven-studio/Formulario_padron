@@ -1,95 +1,126 @@
 // ============================================================
-// INSTRUCCIONES DE DESPLIEGUE
+// GOOGLE APPS SCRIPT — Guardar registros en Google Sheets
 // ============================================================
-// 1. Abre script.google.com y crea un nuevo proyecto
-// 2. Pega todo este código reemplazando el contenido por defecto
-// 3. Cambia SPREADSHEET_ID por el ID de tu Google Sheet
-//    (el ID está en la URL: .../spreadsheets/d/<ID>/edit)
-// 4. Despliega: Implementar → Nueva implementación
-//      Tipo: Aplicación web
-//      Ejecutar como: Yo
-//      Quién tiene acceso: Cualquier persona
-// 5. Copia la URL de implementación y pégala en formulario.html
+// INSTRUCCIONES DE INSTALACIÓN:
+//
+// 1. Abre Google Sheets en el archivo donde quieres guardar datos
+// 2. Menú: Extensiones → Apps Script
+// 3. Borra el código de ejemplo y pega TODO este archivo
+// 4. Cambia SHEET_NAME si quieres otro nombre de pestaña (opcional)
+// 5. Menú: Implementar → Nueva implementación
+//    - Tipo: Aplicación web
+//    - Ejecutar como: Yo (tu cuenta)
+//    - Quién tiene acceso: Cualquier usuario
+// 6. Clic en "Implementar" → copia la URL que aparece
+// 7. Pega esa URL en el formulario HTML (variable SCRIPT_URL)
 // ============================================================
 
-var SPREADSHEET_ID = '1OOsX17meZUz2_lF3qzo7iUDoO13F1zI0t0ZYhqLgWvY'; // <-- reemplaza esto
-var SHEET_NAME     = 'Registros';
+const SHEET_NAME = 'Registros'; // Nombre de la pestaña destino
 
-// ─── Entrada POST ────────────────────────────────────────────────────────────
+const COLUMNS = [
+  'Nombre',
+  'Email',
+  'Teléfono',
+  'Dirección',
+  'Latitud',
+  'Longitud',
+  'Desarrollo',
+  'Fecha/Hora',
+];
+
+// ─── Punto de entrada POST ───────────────────────────────────────────────────
 function doPost(e) {
   try {
-    var raw     = e.postData ? e.postData.contents : '{}';
-    var payload = JSON.parse(raw);
+    const raw = e.postData && e.postData.contents;
+    if (!raw) throw new Error('No se recibió contenido en el body');
 
-    var err = validatePayload(payload);
-    if (err) return jsonResponse({ success: false, error: err }, 400);
+    const data = JSON.parse(raw);
+    validatePayload(data);
 
-    var sheet = getOrCreateSheet();
-    sheet.appendRow([
-      new Date(payload.timestamp || new Date()),
-      payload.nombre,
-      payload.email,
-      payload.telefono,
-      payload.direccion,
-      payload.lat    || '',
-      payload.lng    || '',
-      payload.desarrollo,
-    ]);
+    const sheet = getOrCreateSheet();
+    appendRow(sheet, data);
 
-    return jsonResponse({ success: true });
+    return jsonResponse({ success: true, message: 'Datos guardados correctamente' });
 
-  } catch (ex) {
-    return jsonResponse({ success: false, error: ex.message }, 500);
+  } catch (err) {
+    return jsonResponse({ success: false, error: err.message }, 400);
   }
 }
 
-// ─── Entrada GET (health-check) ──────────────────────────────────────────────
-function doGet(e) {
-  return jsonResponse({ status: 'ok', message: 'Apps Script activo' });
+// ─── Validación mínima del payload ──────────────────────────────────────────
+function validatePayload(data) {
+  const required = ['nombre', 'email', 'telefono', 'direccion', 'desarrollo'];
+  const missing = required.filter(k => !data[k] || String(data[k]).trim() === '');
+  if (missing.length > 0) {
+    throw new Error('Campos requeridos faltantes: ' + missing.join(', '));
+  }
 }
 
-// ─── Preflight CORS ──────────────────────────────────────────────────────────
-function doOptions(e) {
-  return ContentService
-    .createTextOutput()
-    .setMimeType(ContentService.MimeType.TEXT)
-    .addHeader('Access-Control-Allow-Origin', '*')
-    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function validatePayload(p) {
-  if (!p.nombre    || p.nombre.trim().length < 3)  return 'Nombre inválido';
-  if (!p.email     || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) return 'Email inválido';
-  if (!p.telefono  || !/^[\d\s\+\-\(\)]{7,20}$/.test(p.telefono))  return 'Teléfono inválido';
-  if (!p.direccion || p.direccion.trim().length < 5) return 'Dirección inválida';
-  if (!p.desarrollo) return 'Desarrollo no seleccionado';
-  return null;
-}
-
+// ─── Obtener o crear la hoja con encabezados ─────────────────────────────────
 function getOrCreateSheet() {
-  var ss    = SPREADSHEET_ID === 'TU_SPREADSHEET_ID_AQUI'
-              ? SpreadsheetApp.getActiveSpreadsheet()
-              : SpreadsheetApp.openById(SPREADSHEET_ID);
-  var sheet = ss.getSheetByName(SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
 
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(['Timestamp', 'Nombre', 'Email', 'Teléfono',
-                     'Dirección', 'Latitud', 'Longitud', 'Desarrollo']);
-    sheet.getRange(1, 1, 1, 8).setFontWeight('bold');
+    sheet.appendRow(COLUMNS);
+    formatHeaders(sheet);
+  } else if (sheet.getLastRow() === 0) {
+    sheet.appendRow(COLUMNS);
+    formatHeaders(sheet);
   }
 
   return sheet;
 }
 
+// ─── Dar formato visual a los encabezados ────────────────────────────────────
+function formatHeaders(sheet) {
+  const headerRange = sheet.getRange(1, 1, 1, COLUMNS.length);
+  headerRange.setBackground('#1a73e8');
+  headerRange.setFontColor('#ffffff');
+  headerRange.setFontWeight('bold');
+  headerRange.setHorizontalAlignment('center');
+  sheet.setFrozenRows(1);
+
+  // Anchos de columna
+  const widths = [180, 220, 150, 320, 100, 100, 160, 180];
+  widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+}
+
+// ─── Insertar fila de datos ──────────────────────────────────────────────────
+function appendRow(sheet, data) {
+  const timestamp = data.timestamp
+    ? new Date(data.timestamp)
+    : new Date();
+
+  const row = [
+    String(data.nombre  || '').trim(),
+    String(data.email   || '').trim(),
+    String(data.telefono|| '').trim(),
+    String(data.direccion || '').trim(),
+    data.lat  !== undefined ? Number(data.lat)  : '',
+    data.lng  !== undefined ? Number(data.lng)  : '',
+    String(data.desarrollo || '').trim(),
+    timestamp,
+  ];
+
+  sheet.appendRow(row);
+
+  // Formato de fecha en la última columna insertada
+  const lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow, 8).setNumberFormat('dd/mm/yyyy hh:mm:ss');
+}
+
+// ─── Construir respuesta JSON con CORS ──────────────────────────────────────
 function jsonResponse(payload, statusCode) {
-  var output = ContentService
+  const output = ContentService
     .createTextOutput(JSON.stringify(payload))
-    .setMimeType(ContentService.MimeType.JSON)
-    .addHeader('Access-Control-Allow-Origin', '*')
-    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+    .setMimeType(ContentService.MimeType.JSON);
   return output;
+}
+
+// ─── GET de prueba (navegador) ───────────────────────────────────────────────
+// Visita la URL del script en el navegador para confirmar que está activo.
+function doGet() {
+  return jsonResponse({ status: 'ok', message: 'Script activo y escuchando POST' });
 }

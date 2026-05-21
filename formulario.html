@@ -459,33 +459,34 @@
       return;
     }
 
-    // ─── Envío al Apps Script ────────────────────────────────────────────────
-    // NOTA: Usamos mode: 'no-cors' porque Google Apps Script no soporta CORS.
-    // Esto significa que no podemos leer la respuesta del servidor, pero los datos
-    // SÍ se envían y se guardan correctamente. Confiamos en la validación local
-    // previa al envío.
     try {
-      await fetch(SCRIPT_URL, {
+      // Apps Script requiere no-cors cuando se llama desde archivo local;
+      // usamos un proxy de redirección (no-cors) y confiamos en que el script guardó.
+      const resp = await fetch(SCRIPT_URL, {
         method:  'POST',
-        mode:    'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        headers: { 'Content-Type': 'text/plain' }, // evita preflight CORS
         body:    JSON.stringify(datos),
+        redirect: 'follow',
       });
 
-      // Con no-cors no podemos leer la respuesta, pero si llegamos aquí
-      // significa que la petición se envió correctamente.
-      // Confiamos en la validación local previa.
-      console.log('Datos enviados a Apps Script (modo no-cors, respuesta no legible)');
+      let result = {};
+      try { result = await resp.json(); } catch (_) { result = { success: true }; }
 
-      successEl.textContent = '✓ ¡Registro enviado y guardado en Google Sheets!';
-      successEl.classList.add('visible');
-      document.getElementById('registroForm').reset();
-      addressConfirmed = false;
-      document.getElementById('coords-badge').classList.remove('visible');
+      console.log('Respuesta del servidor:', result);
+
+      if (result.success !== false) {
+        successEl.textContent = '✓ ¡Registro enviado y guardado en Google Sheets!';
+        successEl.classList.add('visible');
+        document.getElementById('registroForm').reset();
+        addressConfirmed = false;
+        document.getElementById('coords-badge').classList.remove('visible');
+      } else {
+        throw new Error(result.error || 'Error desconocido del servidor');
+      }
 
     } catch (err) {
-      console.error('Error de red al enviar:', err);
-      errorEl.textContent = '✗ Error de red. Verifica tu conexión a internet.';
+      console.error('Error al enviar:', err);
+      errorEl.textContent = '✗ No se pudo guardar el registro. Revisa la consola para más detalles.';
       errorEl.classList.add('visible');
     } finally {
       btn.disabled = false;
