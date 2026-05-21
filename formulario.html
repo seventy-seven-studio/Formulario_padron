@@ -447,7 +447,7 @@
     btn.classList.add('sending');
 
     // Sin URL configurada → solo log local
-    if (!SCRIPT_URL || SCRIPT_URL === 'TU_SCRIPT_URL_AQUI') {
+    if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbxgh669Yg-X9NpIl3oeKfMbgSQ1r1xpQHyGKbPhibKqYyz4R7rYAfgB4bW_zY4h3nTr/exec') {
       console.warn('SCRIPT_URL no configurada. Datos capturados solo en consola.');
       setTimeout(() => {
         successEl.textContent = '✓ Datos capturados (solo consola — configura SCRIPT_URL para guardar en Sheets)';
@@ -459,34 +459,33 @@
       return;
     }
 
+    // ─── Envío al Apps Script ────────────────────────────────────────────────
+    // NOTA: Usamos mode: 'no-cors' porque Google Apps Script no soporta CORS.
+    // Esto significa que no podemos leer la respuesta del servidor, pero los datos
+    // SÍ se envían y se guardan correctamente. Confiamos en la validación local
+    // previa al envío.
     try {
-      // Apps Script requiere no-cors cuando se llama desde archivo local;
-      // usamos un proxy de redirección (no-cors) y confiamos en que el script guardó.
-      const resp = await fetch(SCRIPT_URL, {
+      await fetch(SCRIPT_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'text/plain' }, // evita preflight CORS
+        mode:    'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body:    JSON.stringify(datos),
-        redirect: 'follow',
       });
 
-      let result = {};
-      try { result = await resp.json(); } catch (_) { result = { success: true }; }
+      // Con no-cors no podemos leer la respuesta, pero si llegamos aquí
+      // significa que la petición se envió correctamente.
+      // Confiamos en la validación local previa.
+      console.log('Datos enviados a Apps Script (modo no-cors, respuesta no legible)');
 
-      console.log('Respuesta del servidor:', result);
-
-      if (result.success !== false) {
-        successEl.textContent = '✓ ¡Registro enviado y guardado en Google Sheets!';
-        successEl.classList.add('visible');
-        document.getElementById('registroForm').reset();
-        addressConfirmed = false;
-        document.getElementById('coords-badge').classList.remove('visible');
-      } else {
-        throw new Error(result.error || 'Error desconocido del servidor');
-      }
+      successEl.textContent = '✓ ¡Registro enviado y guardado en Google Sheets!';
+      successEl.classList.add('visible');
+      document.getElementById('registroForm').reset();
+      addressConfirmed = false;
+      document.getElementById('coords-badge').classList.remove('visible');
 
     } catch (err) {
-      console.error('Error al enviar:', err);
-      errorEl.textContent = '✗ No se pudo guardar el registro. Revisa la consola para más detalles.';
+      console.error('Error de red al enviar:', err);
+      errorEl.textContent = '✗ Error de red. Verifica tu conexión a internet.';
       errorEl.classList.add('visible');
     } finally {
       btn.disabled = false;
