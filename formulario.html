@@ -447,7 +447,7 @@
     btn.classList.add('sending');
 
     // Sin URL configurada → solo log local
-    if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbxgh669Yg-X9NpIl3oeKfMbgSQ1r1xpQHyGKbPhibKqYyz4R7rYAfgB4bW_zY4h3nTr/exec') {
+    if (!SCRIPT_URL || SCRIPT_URL === 'TU_SCRIPT_URL_AQUI') {
       console.warn('SCRIPT_URL no configurada. Datos capturados solo en consola.');
       setTimeout(() => {
         successEl.textContent = '✓ Datos capturados (solo consola — configura SCRIPT_URL para guardar en Sheets)';
