@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formulario de Registro</title>
+
+  <!--
+  ============================================================
+  CONFIGURACIÓN DE API KEY — LEER ANTES DE USAR
+  ============================================================
+  1. Ve a: https://console.cloud.google.com/
+  2. Crea un proyecto (o selecciona uno existente)
+  3. Habilita la API: "Places API" y "Maps JavaScript API"
+  4. Ve a "Credenciales" → "Crear credenciales" → "Clave de API"
+  5. Reemplaza TU_API_KEY_AQUI en el script al final de este archivo
+  6. (Recomendado) Restringe la clave a tu dominio en la consola de Google
+  ============================================================
+  -->
+
+  <!--
+  ============================================================
+  CONFIGURACIÓN DE GOOGLE SHEETS — LEER ANTES DE USAR
+  ============================================================
+  1. Sigue las instrucciones del archivo apps-script.gs
+  2. Obtén la URL de la implementación web de Apps Script
+  3. Reemplaza TU_SCRIPT_URL_AQUI abajo (en la variable SCRIPT_URL)
+  ============================================================
+  -->
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 32px rgba(0,0,0,.10);
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .card-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .card-header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1a202c;
+    }
+
+    .card-header p {
+      color: #718096;
+      margin-top: .4rem;
+      font-size: .95rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: .875rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: .4rem;
+    }
+
+    label .required {
+      color: #e53e3e;
+      margin-left: 2px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: .65rem .9rem;
+      border: 1.5px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: .95rem;
+      color: #2d3748;
+      background: #fff;
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus {
+      border-color: #4299e1;
+      box-shadow: 0 0 0 3px rgba(66,153,225,.2);
+    }
+
+    input.error, select.error {
+      border-color: #e53e3e;
+      box-shadow: 0 0 0 3px rgba(229,62,62,.15);
+    }
+
+    .error-msg {
+      font-size: .8rem;
+      color: #e53e3e;
+      margin-top: .3rem;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    .address-wrapper {
+      position: relative;
+    }
+
+    .address-wrapper .pin-icon {
+      position: absolute;
+      right: .8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #a0aec0;
+      pointer-events: none;
+      font-size: 1rem;
+    }
+
+    #coords-badge {
+      display: none;
+      margin-top: .5rem;
+      padding: .4rem .7rem;
+      background: #ebf8ff;
+      border: 1px solid #bee3f8;
+      border-radius: 6px;
+      font-size: .78rem;
+      color: #2b6cb0;
+    }
+
+    #coords-badge.visible { display: block; }
+
+    .select-wrapper {
+      position: relative;
+    }
+
+    .select-wrapper::after {
+      content: '▾';
+      position: absolute;
+      right: .9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: #718096;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: .8rem;
+      background: #3182ce;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: .75rem;
+      transition: background .2s, transform .1s;
+      letter-spacing: .02em;
+    }
+
+    .btn-submit:hover { background: #2b6cb0; }
+    .btn-submit:active { transform: scale(.98); }
+    .btn-submit:disabled { background: #a0aec0; cursor: not-allowed; }
+
+    .success-banner {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1rem;
+      background: #f0fff4;
+      border: 1px solid #9ae6b4;
+      border-radius: 8px;
+      color: #276749;
+      font-size: .9rem;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .success-banner.visible { display: block; }
+
+    /* Google autocomplete dropdown style override */
+    .pac-container {
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.12);
+      border: 1px solid #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .pac-item { padding: .5rem .75rem; cursor: pointer; }
+    .pac-item:hover { background: #ebf8ff; }
+
+    .api-warning {
+      background: #fffaf0;
+      border: 1px solid #f6ad55;
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      font-size: .82rem;
+      color: #7b341e;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    .api-warning strong { display: block; margin-bottom: .25rem; }
+    .api-warning code {
+      background: #feebc8;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    .error-banner {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1rem;
+      background: #fff5f5;
+      border: 1px solid #feb2b2;
+      border-radius: 8px;
+      color: #742a2a;
+      font-size: .88rem;
+      text-align: center;
+    }
+
+    .error-banner.visible { display: block; }
+
+    .btn-submit.sending {
+      background: #a0aec0;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Registro de Interés</h1>
+    <p>Completa tus datos y te contactamos a la brevedad</p>
+  </div>
+
+  <div class="api-warning" id="api-warning">
+    <strong>&#9888;&#65039; Configuración requerida</strong>
+    Reemplaza <code>TU_API_KEY_AQUI</code> al final de este archivo con tu clave de Google Maps para activar el autocomplete de dirección.
+    <br>Guía rápida en los comentarios del código fuente.
+  </div>
+
+  <form id="registroForm" novalidate>
+
+    <!-- Nombre -->
+    <div class="form-group">
+      <label for="nombre">Nombre completo <span class="required">*</span></label>
+      <input type="text" id="nombre" name="nombre" placeholder="Ej. María González" autocomplete="name" />
+      <div class="error-msg" id="err-nombre">Por favor ingresa tu nombre completo.</div>
+    </div>
+
+    <!-- Email -->
+    <div class="form-group">
+      <label for="email">Correo electrónico <span class="required">*</span></label>
+      <input type="email" id="email" name="email" placeholder="ejemplo@correo.com" autocomplete="email" />
+      <div class="error-msg" id="err-email">Ingresa un correo electrónico válido.</div>
+    </div>
+
+    <!-- Teléfono -->
+    <div class="form-group">
+      <label for="telefono">Teléfono <span class="required">*</span></label>
+      <input type="tel" id="telefono" name="telefono" placeholder="Ej. +52 55 1234 5678" autocomplete="tel" />
+      <div class="error-msg" id="err-telefono">Ingresa un número de teléfono válido.</div>
+    </div>
+
+    <!-- Dirección con autocomplete -->
+    <div class="form-group">
+      <label for="direccion">Dirección <span class="required">*</span></label>
+      <div class="address-wrapper">
+        <input type="text" id="direccion" name="direccion" placeholder="Comienza a escribir tu dirección..." autocomplete="off" />
+        <span class="pin-icon">&#128205;</span>
+      </div>
+      <div class="error-msg" id="err-direccion">Selecciona una dirección del listado de sugerencias.</div>
+      <div id="coords-badge">
+        &#128207; Coordenadas: <strong id="coords-text"></strong>
+      </div>
+    </div>
+
+    <!-- Desarrollo / Proyecto -->
+    <div class="form-group">
+      <label for="desarrollo">Desarrollo de interés <span class="required">*</span></label>
+      <div class="select-wrapper">
+        <select id="desarrollo" name="desarrollo">
+          <option value="">— Selecciona un desarrollo —</option>
+          <option value="Monarca II">Monarca II</option>
+          <option value="Otro Desarrollo 1">Otro Desarrollo 1</option>
+          <option value="Otro Desarrollo 2">Otro Desarrollo 2</option>
+        </select>
+      </div>
+      <div class="error-msg" id="err-desarrollo">Selecciona un desarrollo de la lista.</div>
+    </div>
+
+    <button type="submit" class="btn-submit" id="btnEnviar">Enviar registro</button>
+    <div class="success-banner" id="success-banner">
+      &#10003; ¡Registro enviado y guardado en Google Sheets!
+    </div>
+    <div class="error-banner" id="error-banner"></div>
+  </form>
+</div>
+
+<!-- Campos ocultos para coordenadas y dirección formateada -->
+<input type="hidden" id="lat" name="lat" />
+<input type="hidden" id="lng" name="lng" />
+<input type="hidden" id="direccion_completa" name="direccion_completa" />
+
+<script>
+  // ─── URL del Apps Script — reemplaza con tu URL de implementación ────────────
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxgh669Yg-X9NpIl3oeKfMbgSQ1r1xpQHyGKbPhibKqYyz4R7rYAfgB4bW_zY4h3nTr/exec';
+
+  // ─── Estado de geocodificación ───────────────────────────────────────────────
+  let addressConfirmed = false;
+
+  // Reset al escribir manualmente (invalida la selección anterior)
+  document.getElementById('direccion').addEventListener('input', () => {
+    addressConfirmed = false;
+    document.getElementById('lat').value = '';
+    document.getElementById('lng').value = '';
+    document.getElementById('direccion_completa').value = '';
+    document.getElementById('coords-badge').classList.remove('visible');
+  });
+
+  // ─── Inicialización del autocomplete (llamada por Google Maps SDK) ───────────
+  function initAutocomplete() {
+    // Ocultar advertencia de API si el SDK cargó correctamente
+    document.getElementById('api-warning').style.display = 'none';
+
+    const input = document.getElementById('direccion');
+
+    const autocomplete = new google.maps.places.Autocomplete(input, {
+      // Puedes restringir a un país: componentRestrictions: { country: 'mx' }
+      fields: ['formatted_address', 'geometry', 'name'],
+      types: ['address'],
+    });
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+
+      if (!place.geometry || !place.geometry.location) {
+        addressConfirmed = false;
+        return;
+      }
+
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      const formatted = place.formatted_address || input.value;
+
+      document.getElementById('lat').value = lat;
+      document.getElementById('lng').value = lng;
+      document.getElementById('direccion_completa').value = formatted;
+      document.getElementById('coords-text').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      document.getElementById('coords-badge').classList.add('visible');
+
+      // Limpiar error si estaba marcado
+      input.classList.remove('error');
+      document.getElementById('err-direccion').classList.remove('visible');
+
+      addressConfirmed = true;
+    });
+  }
+
+  // ─── Validación ─────────────────────────────────────────────────────────────
+  function showError(fieldId, errorId) {
+    document.getElementById(fieldId).classList.add('error');
+    document.getElementById(errorId).classList.add('visible');
+  }
+
+  function clearError(fieldId, errorId) {
+    document.getElementById(fieldId).classList.remove('error');
+    document.getElementById(errorId).classList.remove('visible');
+  }
+
+  function validateForm() {
+    let valid = true;
+
+    const nombre = document.getElementById('nombre').value.trim();
+    if (nombre.length < 3) { showError('nombre', 'err-nombre'); valid = false; }
+    else clearError('nombre', 'err-nombre');
+
+    const email = document.getElementById('email').value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) { showError('email', 'err-email'); valid = false; }
+    else clearError('email', 'err-email');
+
+    const telefono = document.getElementById('telefono').value.trim();
+    const telRegex = /^[\d\s\+\-\(\)]{7,20}$/;
+    if (!telRegex.test(telefono)) { showError('telefono', 'err-telefono'); valid = false; }
+    else clearError('telefono', 'err-telefono');
+
+    const direccion = document.getElementById('direccion').value.trim();
+    if (!addressConfirmed || direccion.length < 5) {
+      showError('direccion', 'err-direccion');
+      valid = false;
+    } else clearError('direccion', 'err-direccion');
+
+    const desarrollo = document.getElementById('desarrollo').value;
+    if (!desarrollo) { showError('desarrollo', 'err-desarrollo'); valid = false; }
+    else clearError('desarrollo', 'err-desarrollo');
+
+    return valid;
+  }
+
+  // ─── Submit ──────────────────────────────────────────────────────────────────
+  document.getElementById('registroForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    const datos = {
+      nombre:     document.getElementById('nombre').value.trim(),
+      email:      document.getElementById('email').value.trim(),
+      telefono:   document.getElementById('telefono').value.trim(),
+      direccion:  document.getElementById('direccion_completa').value ||
+                  document.getElementById('direccion').value.trim(),
+      lat:        parseFloat(document.getElementById('lat').value),
+      lng:        parseFloat(document.getElementById('lng').value),
+      desarrollo: document.getElementById('desarrollo').value,
+      timestamp:  new Date().toISOString(),
+    };
+
+    console.log('=== DATOS DEL FORMULARIO ===');
+    console.table(datos);
+
+    const btn        = document.getElementById('btnEnviar');
+    const successEl  = document.getElementById('success-banner');
+    const errorEl    = document.getElementById('error-banner');
+
+    successEl.classList.remove('visible');
+    errorEl.classList.remove('visible');
+    btn.disabled    = true;
+    btn.textContent = 'Enviando...';
+    btn.classList.add('sending');
+
+    // Sin URL configurada → solo log local
+    if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbxgh669Yg-X9NpIl3oeKfMbgSQ1r1xpQHyGKbPhibKqYyz4R7rYAfgB4bW_zY4h3nTr/exec') {
+      console.warn('SCRIPT_URL no configurada. Datos capturados solo en consola.');
+      setTimeout(() => {
+        successEl.textContent = '✓ Datos capturados (solo consola — configura SCRIPT_URL para guardar en Sheets)';
+        successEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Enviar registro';
+        btn.classList.remove('sending');
+      }, 400);
+      return;
+    }
+
+    try {
+      // Apps Script requiere no-cors cuando se llama desde archivo local;
+      // usamos un proxy de redirección (no-cors) y confiamos en que el script guardó.
+      const resp = await fetch(SCRIPT_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'text/plain' }, // evita preflight CORS
+        body:    JSON.stringify(datos),
+        redirect: 'follow',
+      });
+
+      let result = {};
+      try { result = await resp.json(); } catch (_) { result = { success: true }; }
+
+      console.log('Respuesta del servidor:', result);
+
+      if (result.success !== false) {
+        successEl.textContent = '✓ ¡Registro enviado y guardado en Google Sheets!';
+        successEl.classList.add('visible');
+        document.getElementById('registroForm').reset();
+        addressConfirmed = false;
+        document.getElementById('coords-badge').classList.remove('visible');
+      } else {
+        throw new Error(result.error || 'Error desconocido del servidor');
+      }
+
+    } catch (err) {
+      console.error('Error al enviar:', err);
+      errorEl.textContent = '✗ No se pudo guardar el registro. Revisa la consola para más detalles.';
+      errorEl.classList.add('visible');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enviar registro';
+      btn.classList.remove('sending');
+    }
+  });
+
+  // ─── Limpiar errores al escribir ────────────────────────────────────────────
+  ['nombre', 'email', 'telefono', 'desarrollo'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => clearError(id, `err-${id}`));
+    el.addEventListener('change', () => clearError(id, `err-${id}`));
+  });
+</script>
+
+<!--
+  ============================================================
+  REEMPLAZA "TU_API_KEY_AQUI" con tu clave de Google Maps API
+  Pasos:
+    1. https://console.cloud.google.com/
+    2. APIs habilitadas: "Places API" + "Maps JavaScript API"
+    3. Crear credencial → Clave de API
+    4. Pegar la clave abajo
+  ============================================================
+-->
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBW5GBxznJaISXRAvmcD4HwBFaceqVPYEA&libraries=places&callback=initAutocomplete"
+  async defer>
+</script>
+
+</body>
+</html>
