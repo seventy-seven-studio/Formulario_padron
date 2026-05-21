@@ -1,126 +1,182 @@
 // ============================================================
-// GOOGLE APPS SCRIPT — Guardar registros en Google Sheets
+// INSTRUCCIONES DE DESPLIEGUE
 // ============================================================
-// INSTRUCCIONES DE INSTALACIÓN:
-//
-// 1. Abre Google Sheets en el archivo donde quieres guardar datos
-// 2. Menú: Extensiones → Apps Script
-// 3. Borra el código de ejemplo y pega TODO este archivo
-// 4. Cambia SHEET_NAME si quieres otro nombre de pestaña (opcional)
-// 5. Menú: Implementar → Nueva implementación
-//    - Tipo: Aplicación web
-//    - Ejecutar como: Yo (tu cuenta)
-//    - Quién tiene acceso: Cualquier usuario
-// 6. Clic en "Implementar" → copia la URL que aparece
-// 7. Pega esa URL en el formulario HTML (variable SCRIPT_URL)
+// 1. Abre script.google.com y crea un nuevo proyecto
+// 2. Pega todo este código reemplazando el contenido por defecto
+// 3. Asegúrate de que SPREADSHEET_ID sea el ID de tu Google Sheet
+//    (el ID está en la URL: .../spreadsheets/d/<ID>/edit)
+// 4. Despliega: Implementar → Nueva implementación
+//      Tipo: Aplicación web
+//      Ejecutar como: Yo
+//      Quién tiene acceso: Cualquier persona
+// 5. Copia la URL de implementación y pégala en formulario.html
 // ============================================================
 
-const SHEET_NAME = 'Registros'; // Nombre de la pestaña destino
+var SPREADSHEET_ID = '1OOsX17meZUz2_lF3qzo7iUDoO13F1zI0t0ZYhqLgWvY';
 
-const COLUMNS = [
-  'Nombre',
-  'Email',
-  'Teléfono',
-  'Dirección',
-  'Latitud',
-  'Longitud',
-  'Desarrollo',
-  'Fecha/Hora',
-];
+var SHEET = {
+  TUTORES:     'Tutores',
+  ADULTOS:     'Adultos',
+  ESTUDIANTES: 'Estudiantes'
+};
 
-// ─── Punto de entrada POST ───────────────────────────────────────────────────
+var HEADERS = {
+  TUTORES: [
+    'Timestamp', 'CURP', 'Apellido Paterno', 'Apellido Materno', 'Nombre(s)',
+    'Fecha Nacimiento', 'Edad', 'Género', 'Estado Civil', 'Domicilio',
+    'Latitud', 'Longitud', 'CP Auto', 'CP', 'Lada', 'Celular', 'Email'
+  ],
+  ADULTOS: [
+    'CURP Tutor', 'CURP Adulto', 'Apellido Paterno', 'Apellido Materno', 'Nombre(s)',
+    'Fecha Nacimiento', 'Edad', 'Género', 'Ocupación'
+  ],
+  ESTUDIANTES: [
+    'CURP Tutor', 'Apellido Paterno', 'Apellido Materno', 'Nombre(s)',
+    'Nivel Escolar', 'Grado Secundaria', 'Plantel'
+  ]
+};
+
+var CURP_REGEX = /^[A-Z]{4}\d{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z\d]\d$/;
+
+// ─── Entrada POST ────────────────────────────────────────────────────────────
 function doPost(e) {
   try {
-    const raw = e.postData && e.postData.contents;
-    if (!raw) throw new Error('No se recibió contenido en el body');
+    var raw     = e.postData ? e.postData.contents : '{}';
+    var payload = JSON.parse(raw);
 
-    const data = JSON.parse(raw);
-    validatePayload(data);
+    var err = validatePayload(payload);
+    if (err) return jsonResponse({ success: false, error: err });
 
-    const sheet = getOrCreateSheet();
-    appendRow(sheet, data);
+    var ss        = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var timestamp = new Date(payload.timestamp || new Date());
+    var t         = payload.tutor;
 
-    return jsonResponse({ success: true, message: 'Datos guardados correctamente' });
+    // ── Hoja Tutores ──────────────────────────────────────────
+    var sheetT = getOrCreateSheet(ss, SHEET.TUTORES, HEADERS.TUTORES);
+    sheetT.appendRow([
+      timestamp,
+      t.curp,
+      t.apellido_paterno,
+      t.apellido_materno,
+      t.nombres,
+      t.fecha_nacimiento,
+      t.edad,
+      t.genero,
+      t.estado_civil,
+      t.domicilio,
+      t.lat,
+      t.lng,
+      t.cp_auto,
+      t.cp,
+      t.lada,
+      t.celular,
+      t.email
+    ]);
 
-  } catch (err) {
-    return jsonResponse({ success: false, error: err.message }, 400);
+    // ── Hoja Adultos ──────────────────────────────────────────
+    if (payload.adultos && payload.adultos.length > 0) {
+      var sheetA = getOrCreateSheet(ss, SHEET.ADULTOS, HEADERS.ADULTOS);
+      payload.adultos.forEach(function(a) {
+        sheetA.appendRow([
+          t.curp,
+          a.curp,
+          a.apellido_paterno,
+          a.apellido_materno,
+          a.nombres,
+          a.fecha_nacimiento,
+          a.edad,
+          a.genero,
+          a.ocupacion
+        ]);
+      });
+    }
+
+    // ── Hoja Estudiantes ──────────────────────────────────────
+    if (payload.estudiantes && payload.estudiantes.length > 0) {
+      var sheetE = getOrCreateSheet(ss, SHEET.ESTUDIANTES, HEADERS.ESTUDIANTES);
+      payload.estudiantes.forEach(function(est) {
+        sheetE.appendRow([
+          t.curp,
+          est.apellido_paterno,
+          est.apellido_materno,
+          est.nombres,
+          est.nivel_escolar,
+          est.grado_secundaria,
+          est.plantel
+        ]);
+      });
+    }
+
+    return jsonResponse({ success: true });
+
+  } catch (ex) {
+    return jsonResponse({ success: false, error: ex.message });
   }
 }
 
-// ─── Validación mínima del payload ──────────────────────────────────────────
-function validatePayload(data) {
-  const required = ['nombre', 'email', 'telefono', 'direccion', 'desarrollo'];
-  const missing = required.filter(k => !data[k] || String(data[k]).trim() === '');
-  if (missing.length > 0) {
-    throw new Error('Campos requeridos faltantes: ' + missing.join(', '));
-  }
+// ─── Entrada GET (health-check) ──────────────────────────────────────────────
+function doGet(e) {
+  return jsonResponse({ status: 'ok', message: 'Apps Script activo' });
 }
 
-// ─── Obtener o crear la hoja con encabezados ─────────────────────────────────
-function getOrCreateSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_NAME);
+// ─── Preflight CORS ──────────────────────────────────────────────────────────
+function doOptions(e) {
+  return ContentService
+    .createTextOutput()
+    .setMimeType(ContentService.MimeType.TEXT)
+    .addHeader('Access-Control-Allow-Origin', '*')
+    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function validatePayload(p) {
+  if (!p || !p.tutor) return 'Payload incompleto: falta tutor';
+
+  var t = p.tutor;
+  if (!t.apellido_paterno || !t.apellido_paterno.trim()) return 'Apellido paterno del tutor requerido';
+  if (!t.nombres          || !t.nombres.trim())          return 'Nombres del tutor requeridos';
+  if (!CURP_REGEX.test(t.curp))                          return 'CURP del tutor inválido: ' + t.curp;
+  if (!t.fecha_nacimiento)                               return 'Fecha de nacimiento del tutor requerida';
+  if (!t.domicilio        || !t.domicilio.trim())        return 'Domicilio del tutor requerido';
+  if (!/^\d{5}$/.test(t.cp))                            return 'CP del tutor inválido';
+
+  if (p.adultos) {
+    for (var i = 0; i < p.adultos.length; i++) {
+      var a = p.adultos[i];
+      if (!a.apellido_paterno || !a.apellido_paterno.trim()) return 'Apellido paterno de adulto ' + (i + 1) + ' requerido';
+      if (!a.nombres          || !a.nombres.trim())          return 'Nombres de adulto '          + (i + 1) + ' requeridos';
+      if (!CURP_REGEX.test(a.curp))                          return 'CURP de adulto '              + (i + 1) + ' inválido';
+      if (!a.fecha_nacimiento)                               return 'Fecha de nacimiento de adulto ' + (i + 1) + ' requerida';
+    }
+  }
+
+  if (p.estudiantes) {
+    for (var j = 0; j < p.estudiantes.length; j++) {
+      var est = p.estudiantes[j];
+      if (!est.apellido_paterno || !est.apellido_paterno.trim()) return 'Apellido paterno de estudiante ' + (j + 1) + ' requerido';
+      if (!est.nombres          || !est.nombres.trim())          return 'Nombres de estudiante '          + (j + 1) + ' requeridos';
+    }
+  }
+
+  return null;
+}
+
+function getOrCreateSheet(ss, name, headers) {
+  var sheet = ss.getSheetByName(name);
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(COLUMNS);
-    formatHeaders(sheet);
-  } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow(COLUMNS);
-    formatHeaders(sheet);
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
   }
-
   return sheet;
 }
 
-// ─── Dar formato visual a los encabezados ────────────────────────────────────
-function formatHeaders(sheet) {
-  const headerRange = sheet.getRange(1, 1, 1, COLUMNS.length);
-  headerRange.setBackground('#1a73e8');
-  headerRange.setFontColor('#ffffff');
-  headerRange.setFontWeight('bold');
-  headerRange.setHorizontalAlignment('center');
-  sheet.setFrozenRows(1);
-
-  // Anchos de columna
-  const widths = [180, 220, 150, 320, 100, 100, 160, 180];
-  widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-}
-
-// ─── Insertar fila de datos ──────────────────────────────────────────────────
-function appendRow(sheet, data) {
-  const timestamp = data.timestamp
-    ? new Date(data.timestamp)
-    : new Date();
-
-  const row = [
-    String(data.nombre  || '').trim(),
-    String(data.email   || '').trim(),
-    String(data.telefono|| '').trim(),
-    String(data.direccion || '').trim(),
-    data.lat  !== undefined ? Number(data.lat)  : '',
-    data.lng  !== undefined ? Number(data.lng)  : '',
-    String(data.desarrollo || '').trim(),
-    timestamp,
-  ];
-
-  sheet.appendRow(row);
-
-  // Formato de fecha en la última columna insertada
-  const lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow, 8).setNumberFormat('dd/mm/yyyy hh:mm:ss');
-}
-
-// ─── Construir respuesta JSON con CORS ──────────────────────────────────────
-function jsonResponse(payload, statusCode) {
-  const output = ContentService
+function jsonResponse(payload) {
+  return ContentService
     .createTextOutput(JSON.stringify(payload))
-    .setMimeType(ContentService.MimeType.JSON);
-  return output;
-}
-
-// ─── GET de prueba (navegador) ───────────────────────────────────────────────
-// Visita la URL del script en el navegador para confirmar que está activo.
-function doGet() {
-  return jsonResponse({ status: 'ok', message: 'Script activo y escuchando POST' });
+    .setMimeType(ContentService.MimeType.JSON)
+    .addHeader('Access-Control-Allow-Origin', '*')
+    .addHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+    .addHeader('Access-Control-Allow-Headers', 'Content-Type');
 }

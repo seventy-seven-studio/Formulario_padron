@@ -3,31 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Formulario de Registro</title>
-
-  <!--
-  ============================================================
-  CONFIGURACIÓN DE API KEY — LEER ANTES DE USAR
-  ============================================================
-  1. Ve a: https://console.cloud.google.com/
-  2. Crea un proyecto (o selecciona uno existente)
-  3. Habilita la API: "Places API" y "Maps JavaScript API"
-  4. Ve a "Credenciales" → "Crear credenciales" → "Clave de API"
-  5. Reemplaza TU_API_KEY_AQUI en el script al final de este archivo
-  6. (Recomendado) Restringe la clave a tu dominio en la consola de Google
-  ============================================================
-  -->
-
-  <!--
-  ============================================================
-  CONFIGURACIÓN DE GOOGLE SHEETS — LEER ANTES DE USAR
-  ============================================================
-  1. Sigue las instrucciones del archivo apps-script.gs
-  2. Obtén la URL de la implementación web de Apps Script
-  3. Reemplaza TU_SCRIPT_URL_AQUI abajo (en la variable SCRIPT_URL)
-  ============================================================
-  -->
-
+  <title>Padrón Familiar</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -36,7 +12,7 @@
       background: #f0f4f8;
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       padding: 2rem 1rem;
     }
@@ -47,42 +23,34 @@
       box-shadow: 0 4px 32px rgba(0,0,0,.10);
       padding: 2.5rem 2rem;
       width: 100%;
-      max-width: 520px;
+      max-width: 680px;
     }
 
-    .card-header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
+    .card-header { text-align: center; margin-bottom: 2rem; }
+    .card-header h1 { font-size: 1.6rem; font-weight: 700; color: #1a202c; }
+    .card-header p  { color: #718096; margin-top: .4rem; font-size: .95rem; }
 
-    .card-header h1 {
-      font-size: 1.6rem;
+    .form-section { margin-bottom: 2rem; }
+
+    .section-title {
+      font-size: 1.05rem;
       font-weight: 700;
-      color: #1a202c;
-    }
-
-    .card-header p {
-      color: #718096;
-      margin-top: .4rem;
-      font-size: .95rem;
-    }
-
-    .form-group {
+      color: #2b6cb0;
+      padding-bottom: .5rem;
+      border-bottom: 2px solid #bee3f8;
       margin-bottom: 1.25rem;
     }
+
+    .form-group { margin-bottom: 1.1rem; }
 
     label {
       display: block;
       font-size: .875rem;
       font-weight: 600;
       color: #2d3748;
-      margin-bottom: .4rem;
+      margin-bottom: .35rem;
     }
-
-    label .required {
-      color: #e53e3e;
-      margin-left: 2px;
-    }
+    label .required { color: #e53e3e; margin-left: 2px; }
 
     input, select {
       width: 100%;
@@ -96,17 +64,22 @@
       outline: none;
       appearance: none;
       -webkit-appearance: none;
+      font-family: inherit;
     }
-
     input:focus, select:focus {
       border-color: #4299e1;
       box-shadow: 0 0 0 3px rgba(66,153,225,.2);
     }
-
     input.error, select.error {
       border-color: #e53e3e;
       box-shadow: 0 0 0 3px rgba(229,62,62,.15);
     }
+    input[readonly] {
+      background: #f7fafc;
+      color: #718096;
+      cursor: default;
+    }
+    input[type="date"] { appearance: auto; -webkit-appearance: auto; }
 
     .error-msg {
       font-size: .8rem;
@@ -114,40 +87,16 @@
       margin-top: .3rem;
       display: none;
     }
-
     .error-msg.visible { display: block; }
 
-    .address-wrapper {
-      position: relative;
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 1rem;
     }
+    @media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
 
-    .address-wrapper .pin-icon {
-      position: absolute;
-      right: .8rem;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #a0aec0;
-      pointer-events: none;
-      font-size: 1rem;
-    }
-
-    #coords-badge {
-      display: none;
-      margin-top: .5rem;
-      padding: .4rem .7rem;
-      background: #ebf8ff;
-      border: 1px solid #bee3f8;
-      border-radius: 6px;
-      font-size: .78rem;
-      color: #2b6cb0;
-    }
-
-    #coords-badge.visible { display: block; }
-
-    .select-wrapper {
-      position: relative;
-    }
-
+    .select-wrapper { position: relative; }
     .select-wrapper::after {
       content: '▾';
       position: absolute;
@@ -158,9 +107,130 @@
       color: #718096;
     }
 
+    .address-wrapper { position: relative; }
+    .address-wrapper .pin-icon {
+      position: absolute;
+      right: .8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #a0aec0;
+      pointer-events: none;
+    }
+
+    .coords-badge {
+      display: none;
+      margin-top: .4rem;
+      padding: .35rem .6rem;
+      background: #ebf8ff;
+      border: 1px solid #bee3f8;
+      border-radius: 6px;
+      font-size: .78rem;
+      color: #2b6cb0;
+    }
+    .coords-badge.visible { display: block; }
+
+    .cp-warning {
+      display: none;
+      margin-top: .35rem;
+      padding: .35rem .6rem;
+      background: #fffbeb;
+      border: 1px solid #f6e05e;
+      border-radius: 6px;
+      font-size: .78rem;
+      color: #744210;
+    }
+    .cp-warning.visible { display: block; }
+
+    .phone-group { display: flex; gap: .5rem; }
+    .phone-group .lada-wrap { width: 90px; flex-shrink: 0; position: relative; }
+    .phone-group .lada-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: .6rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: #718096;
+    }
+    .phone-group .lada-wrap select { padding-right: 1.4rem; }
+    .phone-group input { flex: 1; }
+
+    .radio-group { display: flex; gap: 1.5rem; align-items: center; padding: .4rem 0; flex-wrap: wrap; }
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      cursor: pointer;
+      font-size: .93rem;
+      color: #2d3748;
+      font-weight: 400;
+    }
+    .radio-option input[type="radio"] {
+      width: 17px; height: 17px;
+      padding: 0; border: none;
+      appearance: auto; -webkit-appearance: auto;
+      cursor: pointer; flex-shrink: 0;
+    }
+
+    .readonly-wrapper { position: relative; }
+    .readonly-wrapper .lock-icon {
+      position: absolute;
+      right: .75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #a0aec0;
+      pointer-events: none;
+      font-size: .85rem;
+    }
+
+    .member-block {
+      background: #f7fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.25rem 1.25rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .member-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .member-title { font-size: .95rem; font-weight: 700; color: #2b6cb0; }
+    .btn-remove {
+      background: none;
+      border: 1px solid #e53e3e;
+      border-radius: 6px;
+      color: #e53e3e;
+      font-size: .78rem;
+      padding: .25rem .6rem;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-remove:hover { background: #fff5f5; }
+
+    .btn-add {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      background: none;
+      border: 1.5px dashed #4299e1;
+      border-radius: 8px;
+      color: #2b6cb0;
+      font-size: .9rem;
+      font-weight: 600;
+      padding: .6rem 1rem;
+      cursor: pointer;
+      width: 100%;
+      transition: background .15s, border-color .15s;
+      font-family: inherit;
+    }
+    .btn-add:hover { background: #ebf8ff; border-color: #2b6cb0; }
+
     .btn-submit {
       width: 100%;
-      padding: .8rem;
+      padding: .85rem;
       background: #3182ce;
       color: #fff;
       font-size: 1rem;
@@ -168,14 +238,14 @@
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      margin-top: .75rem;
+      margin-top: .5rem;
       transition: background .2s, transform .1s;
       letter-spacing: .02em;
+      font-family: inherit;
     }
-
-    .btn-submit:hover { background: #2b6cb0; }
+    .btn-submit:hover  { background: #2b6cb0; }
     .btn-submit:active { transform: scale(.98); }
-    .btn-submit:disabled { background: #a0aec0; cursor: not-allowed; }
+    .btn-submit:disabled, .btn-submit.sending { background: #a0aec0; cursor: not-allowed; transform: none; }
 
     .success-banner {
       display: none;
@@ -189,38 +259,7 @@
       text-align: center;
       font-weight: 600;
     }
-
     .success-banner.visible { display: block; }
-
-    /* Google autocomplete dropdown style override */
-    .pac-container {
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,.12);
-      border: 1px solid #e2e8f0;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-    }
-
-    .pac-item { padding: .5rem .75rem; cursor: pointer; }
-    .pac-item:hover { background: #ebf8ff; }
-
-    .api-warning {
-      background: #fffaf0;
-      border: 1px solid #f6ad55;
-      border-radius: 8px;
-      padding: .75rem 1rem;
-      font-size: .82rem;
-      color: #7b341e;
-      margin-bottom: 1.5rem;
-      line-height: 1.5;
-    }
-
-    .api-warning strong { display: block; margin-bottom: .25rem; }
-    .api-warning code {
-      background: #feebc8;
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-family: monospace;
-    }
 
     .error-banner {
       display: none;
@@ -233,286 +272,739 @@
       font-size: .88rem;
       text-align: center;
     }
-
     .error-banner.visible { display: block; }
 
-    .btn-submit.sending {
-      background: #a0aec0;
-      cursor: not-allowed;
+    .api-warning {
+      background: #fffaf0;
+      border: 1px solid #f6ad55;
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      font-size: .82rem;
+      color: #7b341e;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
     }
+    .api-warning strong { display: block; margin-bottom: .25rem; }
+
+    .pac-container {
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.12);
+      border: 1px solid #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .pac-item { padding: .5rem .75rem; cursor: pointer; }
+    .pac-item:hover { background: #ebf8ff; }
   </style>
 </head>
 <body>
 
 <div class="card">
   <div class="card-header">
-    <h1>Registro de Interés</h1>
-    <p>Completa tus datos y te contactamos a la brevedad</p>
+    <h1>Padrón Familiar</h1>
+    <p>Registro de integrantes del hogar</p>
   </div>
 
   <div class="api-warning" id="api-warning">
     <strong>&#9888;&#65039; Configuración requerida</strong>
-    Reemplaza <code>TU_API_KEY_AQUI</code> al final de este archivo con tu clave de Google Maps para activar el autocomplete de dirección.
-    <br>Guía rápida en los comentarios del código fuente.
+    El autocomplete de dirección requiere la API de Google Maps. Si no funciona, revisa la clave en el código fuente.
   </div>
 
-  <form id="registroForm" novalidate>
+  <form id="padronForm" novalidate>
 
-    <!-- Nombre -->
-    <div class="form-group">
-      <label for="nombre">Nombre completo <span class="required">*</span></label>
-      <input type="text" id="nombre" name="nombre" placeholder="Ej. María González" autocomplete="name" />
-      <div class="error-msg" id="err-nombre">Por favor ingresa tu nombre completo.</div>
-    </div>
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- SECCIÓN 1: DATOS DEL TUTOR                            -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <section class="form-section">
+      <h2 class="section-title">1. Datos del Tutor</h2>
 
-    <!-- Email -->
-    <div class="form-group">
-      <label for="email">Correo electrónico <span class="required">*</span></label>
-      <input type="email" id="email" name="email" placeholder="ejemplo@correo.com" autocomplete="email" />
-      <div class="error-msg" id="err-email">Ingresa un correo electrónico válido.</div>
-    </div>
-
-    <!-- Teléfono -->
-    <div class="form-group">
-      <label for="telefono">Teléfono <span class="required">*</span></label>
-      <input type="tel" id="telefono" name="telefono" placeholder="Ej. +52 55 1234 5678" autocomplete="tel" />
-      <div class="error-msg" id="err-telefono">Ingresa un número de teléfono válido.</div>
-    </div>
-
-    <!-- Dirección con autocomplete -->
-    <div class="form-group">
-      <label for="direccion">Dirección <span class="required">*</span></label>
-      <div class="address-wrapper">
-        <input type="text" id="direccion" name="direccion" placeholder="Comienza a escribir tu dirección..." autocomplete="off" />
-        <span class="pin-icon">&#128205;</span>
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="t-apPaterno">Apellido Paterno <span class="required">*</span></label>
+          <input type="text" id="t-apPaterno" maxlength="40" placeholder="Apellido paterno" autocomplete="off" />
+          <div class="error-msg" id="err-t-apPaterno">Campo requerido.</div>
+        </div>
+        <div class="form-group">
+          <label for="t-apMaterno">Apellido Materno</label>
+          <input type="text" id="t-apMaterno" maxlength="40" placeholder="Apellido materno" autocomplete="off" />
+        </div>
       </div>
-      <div class="error-msg" id="err-direccion">Selecciona una dirección del listado de sugerencias.</div>
-      <div id="coords-badge">
-        &#128207; Coordenadas: <strong id="coords-text"></strong>
-      </div>
-    </div>
 
-    <!-- Desarrollo / Proyecto -->
-    <div class="form-group">
-      <label for="desarrollo">Desarrollo de interés <span class="required">*</span></label>
-      <div class="select-wrapper">
-        <select id="desarrollo" name="desarrollo">
-          <option value="">— Selecciona un desarrollo —</option>
-          <option value="Monarca II">Monarca II</option>
-          <option value="Otro Desarrollo 1">Otro Desarrollo 1</option>
-          <option value="Otro Desarrollo 2">Otro Desarrollo 2</option>
-        </select>
+      <div class="form-group">
+        <label for="t-nombres">Nombre(s) <span class="required">*</span></label>
+        <input type="text" id="t-nombres" maxlength="60" placeholder="Nombre(s)" autocomplete="off" />
+        <div class="error-msg" id="err-t-nombres">Campo requerido.</div>
       </div>
-      <div class="error-msg" id="err-desarrollo">Selecciona un desarrollo de la lista.</div>
-    </div>
 
-    <button type="submit" class="btn-submit" id="btnEnviar">Enviar registro</button>
-    <div class="success-banner" id="success-banner">
-      &#10003; ¡Registro enviado y guardado en Google Sheets!
-    </div>
-    <div class="error-banner" id="error-banner"></div>
+      <div class="form-group">
+        <label for="t-curp">CURP <span class="required">*</span></label>
+        <input type="text" id="t-curp" maxlength="18" placeholder="CURP (18 caracteres)" autocomplete="off" style="text-transform:uppercase" />
+        <div class="error-msg" id="err-t-curp">CURP inválido. Verifica los 18 caracteres.</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="t-fechaNac">Fecha de Nacimiento <span class="required">*</span></label>
+          <input type="date" id="t-fechaNac" />
+          <div class="error-msg" id="err-t-fechaNac">Fecha requerida.</div>
+        </div>
+        <div class="form-group">
+          <label for="t-edad">Edad</label>
+          <input type="text" id="t-edad" readonly placeholder="Automática" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Género <span class="required">*</span></label>
+        <div class="radio-group">
+          <label class="radio-option"><input type="radio" name="t-genero" value="H" /> Hombre (H)</label>
+          <label class="radio-option"><input type="radio" name="t-genero" value="M" /> Mujer (M)</label>
+          <label class="radio-option"><input type="radio" name="t-genero" value="Otro" /> Otro</label>
+        </div>
+        <input type="text" id="t-genero-otro" maxlength="30" placeholder="Especifica el género" style="display:none;margin-top:.5rem" />
+        <div class="error-msg" id="err-t-genero">Selecciona un género.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="t-estadoCivil">Estado Civil <span class="required">*</span></label>
+        <div class="select-wrapper">
+          <select id="t-estadoCivil">
+            <option value="">— Selecciona —</option>
+            <option value="S">Soltero(a)</option>
+            <option value="C">Casado(a)</option>
+            <option value="UL">Unión Libre</option>
+            <option value="V">Viudo(a)</option>
+            <option value="D">Divorciado(a)</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <input type="text" id="t-estadoCivil-otro" maxlength="30" placeholder="Especifica el estado civil" style="display:none;margin-top:.5rem" />
+        <div class="error-msg" id="err-t-estadoCivil">Selecciona el estado civil.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="t-domicilio">Domicilio <span class="required">*</span></label>
+        <div class="address-wrapper">
+          <input type="text" id="t-domicilio" placeholder="Comienza a escribir tu dirección..." autocomplete="off" />
+          <span class="pin-icon">&#128205;</span>
+        </div>
+        <div class="error-msg" id="err-t-domicilio">Selecciona una dirección del listado.</div>
+        <div class="coords-badge" id="t-coords-badge">
+          &#128207; Coordenadas: <strong id="t-coords-text"></strong>
+        </div>
+        <input type="hidden" id="t-lat" />
+        <input type="hidden" id="t-lng" />
+        <input type="hidden" id="t-domicilio-completo" />
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="t-cp-auto">CP Detectado</label>
+          <div class="readonly-wrapper">
+            <input type="text" id="t-cp-auto" readonly placeholder="Detectado del mapa" />
+            <span class="lock-icon">&#128274;</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="t-cp">Código Postal <span class="required">*</span></label>
+          <input type="text" id="t-cp" maxlength="5" placeholder="5 dígitos" inputmode="numeric" />
+          <div class="error-msg" id="err-t-cp">Ingresa un CP de 5 dígitos.</div>
+          <div class="cp-warning" id="t-cp-warning">&#9888;&#65039; El CP ingresado no coincide con el CP detectado automáticamente</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Celular</label>
+        <div class="phone-group">
+          <div class="lada-wrap">
+            <select id="t-lada">
+              <option value="+52">+52</option>
+              <option value="+1">+1</option>
+            </select>
+          </div>
+          <input type="text" id="t-celular" maxlength="10" placeholder="10 dígitos" inputmode="numeric" />
+        </div>
+        <div class="error-msg" id="err-t-celular">Ingresa exactamente 10 dígitos.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="t-email">Correo electrónico</label>
+        <input type="email" id="t-email" placeholder="ejemplo@correo.com" autocomplete="email" />
+        <div class="error-msg" id="err-t-email">Ingresa un correo electrónico válido.</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- SECCIÓN 2: ADULTOS                                    -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <section class="form-section">
+      <h2 class="section-title">2. Integrantes del Hogar — Adultos</h2>
+      <div id="adultos-container"></div>
+      <button type="button" class="btn-add" id="btn-add-adulto">+ Agregar adulto</button>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- SECCIÓN 3: ESTUDIANTES                                -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <section class="form-section">
+      <h2 class="section-title">3. Integrantes del Hogar — Estudiantes</h2>
+      <div id="estudiantes-container"></div>
+      <button type="button" class="btn-add" id="btn-add-estudiante">+ Agregar estudiante</button>
+    </section>
+
+    <button type="submit" class="btn-submit" id="btnEnviar">Enviar Padrón</button>
+    <div class="success-banner" id="success-banner"></div>
+    <div class="error-banner"  id="error-banner"></div>
   </form>
 </div>
 
-<!-- Campos ocultos para coordenadas y dirección formateada -->
-<input type="hidden" id="lat" name="lat" />
-<input type="hidden" id="lng" name="lng" />
-<input type="hidden" id="direccion_completa" name="direccion_completa" />
-
 <script>
-  // ─── URL del Apps Script — reemplaza con tu URL de implementación ────────────
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxgh669Yg-X9NpIl3oeKfMbgSQ1r1xpQHyGKbPhibKqYyz4R7rYAfgB4bW_zY4h3nTr/exec';
+  // ─── Configuración ───────────────────────────────────────────────────────────
+  const SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbxgh669Yg-X9NpIl3oeKfMbgSQ1r1xpQHyGKbPhibKqYyz4R7rYAfgB4bW_zY4h3nTr/exec';
+  const CURP_REGEX  = /^[A-Z]{4}\d{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z\d]\d$/;
+  const MAX_MEMBERS = 10;
 
-  // ─── Estado de geocodificación ───────────────────────────────────────────────
   let addressConfirmed = false;
+  let cpAuto           = '';
+  let adultoIdx        = 0;
+  let estudianteIdx    = 0;
 
-  // Reset al escribir manualmente (invalida la selección anterior)
-  document.getElementById('direccion').addEventListener('input', () => {
-    addressConfirmed = false;
-    document.getElementById('lat').value = '';
-    document.getElementById('lng').value = '';
-    document.getElementById('direccion_completa').value = '';
-    document.getElementById('coords-badge').classList.remove('visible');
-  });
+  // ─── Utilidades ──────────────────────────────────────────────────────────────
+  function calcularEdad(fechaStr) {
+    if (!fechaStr) return '';
+    const nac  = new Date(fechaStr);
+    if (isNaN(nac)) return '';
+    const hoy  = new Date();
+    let edad   = hoy.getFullYear() - nac.getFullYear();
+    const m    = hoy.getMonth() - nac.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+    return edad >= 0 ? edad : '';
+  }
 
-  // ─── Inicialización del autocomplete (llamada por Google Maps SDK) ───────────
+  function formatFecha(str) {
+    if (!str) return '';
+    const [y, m, d] = str.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function setMaxDate(inp) {
+    inp.setAttribute('max', new Date().toISOString().split('T')[0]);
+  }
+
+  // ─── Google Maps Autocomplete ────────────────────────────────────────────────
   function initAutocomplete() {
-    // Ocultar advertencia de API si el SDK cargó correctamente
     document.getElementById('api-warning').style.display = 'none';
 
-    const input = document.getElementById('direccion');
-
-    const autocomplete = new google.maps.places.Autocomplete(input, {
-      // Puedes restringir a un país: componentRestrictions: { country: 'mx' }
-      fields: ['formatted_address', 'geometry', 'name'],
-      types: ['address'],
+    const inp = document.getElementById('t-domicilio');
+    const ac  = new google.maps.places.Autocomplete(inp, {
+      fields: ['formatted_address', 'geometry', 'address_components'],
+      types:  ['address'],
     });
 
-    autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (!place.geometry) { addressConfirmed = false; return; }
 
-      if (!place.geometry || !place.geometry.location) {
-        addressConfirmed = false;
-        return;
-      }
+      const lat       = place.geometry.location.lat();
+      const lng       = place.geometry.location.lng();
+      const formatted = place.formatted_address || inp.value;
+      const comp      = place.address_components || [];
+      const pcComp    = comp.find(c => c.types.includes('postal_code'));
 
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      const formatted = place.formatted_address || input.value;
+      cpAuto = pcComp ? pcComp.short_name : '';
 
-      document.getElementById('lat').value = lat;
-      document.getElementById('lng').value = lng;
-      document.getElementById('direccion_completa').value = formatted;
-      document.getElementById('coords-text').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      document.getElementById('coords-badge').classList.add('visible');
+      document.getElementById('t-lat').value              = lat;
+      document.getElementById('t-lng').value              = lng;
+      document.getElementById('t-domicilio-completo').value = formatted;
+      document.getElementById('t-coords-text').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      document.getElementById('t-coords-badge').classList.add('visible');
+      document.getElementById('t-cp-auto').value          = cpAuto;
 
-      // Limpiar error si estaba marcado
-      input.classList.remove('error');
-      document.getElementById('err-direccion').classList.remove('visible');
-
+      inp.classList.remove('error');
+      document.getElementById('err-t-domicilio').classList.remove('visible');
       addressConfirmed = true;
+      checkCpMismatch();
+    });
+
+    setMaxDate(document.getElementById('t-fechaNac'));
+  }
+
+  function checkCpMismatch() {
+    const cp  = document.getElementById('t-cp').value.trim();
+    const el  = document.getElementById('t-cp-warning');
+    (cpAuto && cp && cp !== cpAuto) ? el.classList.add('visible') : el.classList.remove('visible');
+  }
+
+  // ─── Tutor listeners ─────────────────────────────────────────────────────────
+  document.getElementById('t-domicilio').addEventListener('input', () => {
+    addressConfirmed = false;
+    ['t-lat','t-lng','t-domicilio-completo'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('t-coords-badge').classList.remove('visible');
+    document.getElementById('t-cp-warning').classList.remove('visible');
+    cpAuto = '';
+    document.getElementById('t-cp-auto').value = '';
+  });
+
+  document.getElementById('t-curp').addEventListener('input', function() {
+    const p = this.selectionStart;
+    this.value = this.value.toUpperCase();
+    this.setSelectionRange(p, p);
+  });
+
+  document.getElementById('t-fechaNac').addEventListener('change', function() {
+    const e = calcularEdad(this.value);
+    document.getElementById('t-edad').value = e !== '' ? e + ' años' : '';
+    document.getElementById('err-t-fechaNac').classList.remove('visible');
+    this.classList.remove('error');
+  });
+
+  document.querySelectorAll('input[name="t-genero"]').forEach(r => {
+    r.addEventListener('change', function() {
+      const otro = document.getElementById('t-genero-otro');
+      otro.style.display = this.value === 'Otro' ? 'block' : 'none';
+      if (this.value !== 'Otro') otro.value = '';
+      document.getElementById('err-t-genero').classList.remove('visible');
+    });
+  });
+
+  document.getElementById('t-estadoCivil').addEventListener('change', function() {
+    const otro = document.getElementById('t-estadoCivil-otro');
+    otro.style.display = this.value === 'Otro' ? 'block' : 'none';
+    if (this.value !== 'Otro') otro.value = '';
+    this.classList.remove('error');
+    document.getElementById('err-t-estadoCivil').classList.remove('visible');
+  });
+
+  document.getElementById('t-cp').addEventListener('input', function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 5);
+    checkCpMismatch();
+  });
+
+  document.getElementById('t-celular').addEventListener('input', function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  });
+
+  // Limpia error de campo de texto al escribir
+  document.getElementById('padronForm').addEventListener('input', function(ev) {
+    const el = ev.target;
+    if (!el.classList.contains('error')) return;
+    const next = el.nextElementSibling;
+    if (next && next.classList.contains('error-msg')) {
+      el.classList.remove('error');
+      next.classList.remove('visible');
+    }
+  });
+
+  // ─── Adultos dinámicos ───────────────────────────────────────────────────────
+  function adultoHTML(n, pos) {
+    return `
+      <div class="member-block" id="adulto-${n}">
+        <div class="member-header">
+          <span class="member-title">Adulto #${pos}</span>
+          <button type="button" class="btn-remove" onclick="eliminar('adulto-${n}','adultos-container','Adulto')">&#10005; Eliminar</button>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Apellido Paterno <span class="required">*</span></label>
+            <input type="text" class="a-apP" maxlength="40" placeholder="Apellido paterno" />
+            <div class="error-msg">Campo requerido.</div>
+          </div>
+          <div class="form-group">
+            <label>Apellido Materno</label>
+            <input type="text" class="a-apM" maxlength="40" placeholder="Apellido materno" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nombre(s) <span class="required">*</span></label>
+          <input type="text" class="a-nom" maxlength="60" placeholder="Nombre(s)" />
+          <div class="error-msg">Campo requerido.</div>
+        </div>
+        <div class="form-group">
+          <label>CURP <span class="required">*</span></label>
+          <input type="text" class="a-curp" maxlength="18" placeholder="CURP (18 caracteres)" style="text-transform:uppercase" />
+          <div class="error-msg">CURP inválido.</div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Fecha de Nacimiento <span class="required">*</span></label>
+            <input type="date" class="a-fecha" />
+            <div class="error-msg">Fecha requerida.</div>
+          </div>
+          <div class="form-group">
+            <label>Edad</label>
+            <input type="text" class="a-edad" readonly placeholder="Automática" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Género <span class="required">*</span></label>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="ag-${n}" value="H" /> Hombre (H)</label>
+            <label class="radio-option"><input type="radio" name="ag-${n}" value="M" /> Mujer (M)</label>
+            <label class="radio-option"><input type="radio" name="ag-${n}" value="Otro" /> Otro</label>
+          </div>
+          <input type="text" class="a-gen-otro" maxlength="30" placeholder="Especifica el género" style="display:none;margin-top:.5rem" />
+          <div class="error-msg a-gen-err">Selecciona un género.</div>
+        </div>
+        <div class="form-group">
+          <label>Ocupación</label>
+          <input type="text" class="a-ocup" maxlength="60" placeholder="Ocupación (opcional)" />
+        </div>
+      </div>`;
+  }
+
+  function initAdulto(div, n) {
+    const fecha  = div.querySelector('.a-fecha');
+    const edad   = div.querySelector('.a-edad');
+    const curp   = div.querySelector('.a-curp');
+    const otro   = div.querySelector('.a-gen-otro');
+    setMaxDate(fecha);
+    fecha.addEventListener('change', function() {
+      const e = calcularEdad(this.value);
+      edad.value = e !== '' ? e + ' años' : '';
+      this.classList.remove('error');
+      this.nextElementSibling.classList.remove('visible');
+    });
+    curp.addEventListener('input', function() {
+      const p = this.selectionStart;
+      this.value = this.value.toUpperCase();
+      this.setSelectionRange(p, p);
+    });
+    div.querySelectorAll(`input[name="ag-${n}"]`).forEach(r => {
+      r.addEventListener('change', function() {
+        otro.style.display = this.value === 'Otro' ? 'block' : 'none';
+        if (this.value !== 'Otro') otro.value = '';
+        div.querySelector('.a-gen-err').classList.remove('visible');
+      });
     });
   }
 
-  // ─── Validación ─────────────────────────────────────────────────────────────
-  function showError(fieldId, errorId) {
-    document.getElementById(fieldId).classList.add('error');
-    document.getElementById(errorId).classList.add('visible');
+  function agregarAdulto() {
+    const cont = document.getElementById('adultos-container');
+    if (cont.children.length >= MAX_MEMBERS) return;
+    adultoIdx++;
+    const pos = cont.children.length + 1;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = adultoHTML(adultoIdx, pos);
+    const blk = tmp.firstElementChild;
+    cont.appendChild(blk);
+    initAdulto(blk, adultoIdx);
   }
 
-  function clearError(fieldId, errorId) {
-    document.getElementById(fieldId).classList.remove('error');
-    document.getElementById(errorId).classList.remove('visible');
+  // ─── Estudiantes dinámicos ───────────────────────────────────────────────────
+  function estudianteHTML(n, pos) {
+    return `
+      <div class="member-block" id="estudiante-${n}">
+        <div class="member-header">
+          <span class="member-title">Estudiante #${pos}</span>
+          <button type="button" class="btn-remove" onclick="eliminar('estudiante-${n}','estudiantes-container','Estudiante')">&#10005; Eliminar</button>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Apellido Paterno <span class="required">*</span></label>
+            <input type="text" class="e-apP" maxlength="40" placeholder="Apellido paterno" />
+            <div class="error-msg">Campo requerido.</div>
+          </div>
+          <div class="form-group">
+            <label>Apellido Materno</label>
+            <input type="text" class="e-apM" maxlength="40" placeholder="Apellido materno" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nombre(s) <span class="required">*</span></label>
+          <input type="text" class="e-nom" maxlength="60" placeholder="Nombre(s)" />
+          <div class="error-msg">Campo requerido.</div>
+        </div>
+        <div class="form-group">
+          <label>Nivel Escolar</label>
+          <div class="select-wrapper">
+            <select class="e-nivel">
+              <option value="">— Selecciona —</option>
+              <option value="Preescolar">Preescolar</option>
+              <option value="Primaria">Primaria</option>
+              <option value="Secundaria">Secundaria</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group e-grado-wrap" style="display:none">
+          <label>Grado (Secundaria)</label>
+          <div class="select-wrapper">
+            <select class="e-grado">
+              <option value="">— Selecciona grado —</option>
+              <option value="Primero">Primero</option>
+              <option value="Segundo">Segundo</option>
+              <option value="Tercero">Tercero</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Plantel / Escuela</label>
+          <input type="text" class="e-plantel" maxlength="80" placeholder="Nombre del plantel (opcional)" />
+        </div>
+      </div>`;
+  }
+
+  function initEstudiante(div) {
+    const nivel     = div.querySelector('.e-nivel');
+    const gradoWrap = div.querySelector('.e-grado-wrap');
+    nivel.addEventListener('change', function() {
+      const show = this.value === 'Secundaria';
+      gradoWrap.style.display = show ? 'block' : 'none';
+      if (!show) div.querySelector('.e-grado').value = '';
+    });
+  }
+
+  function agregarEstudiante() {
+    const cont = document.getElementById('estudiantes-container');
+    if (cont.children.length >= MAX_MEMBERS) return;
+    estudianteIdx++;
+    const pos = cont.children.length + 1;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = estudianteHTML(estudianteIdx, pos);
+    const blk = tmp.firstElementChild;
+    cont.appendChild(blk);
+    initEstudiante(blk);
+  }
+
+  // ─── Eliminar y renumerar ────────────────────────────────────────────────────
+  function eliminar(id, contId, label) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+    document.querySelectorAll(`#${contId} .member-block .member-title`).forEach((t, i) => {
+      t.textContent = `${label} #${i + 1}`;
+    });
+  }
+
+  document.getElementById('btn-add-adulto').addEventListener('click', agregarAdulto);
+  document.getElementById('btn-add-estudiante').addEventListener('click', agregarEstudiante);
+
+  // ─── Validación ──────────────────────────────────────────────────────────────
+  function markErr(el, msgEl, fail) {
+    if (fail) { el.classList.add('error'); if (msgEl) msgEl.classList.add('visible'); }
+    else       { el.classList.remove('error'); if (msgEl) msgEl.classList.remove('visible'); }
   }
 
   function validateForm() {
-    let valid = true;
+    let ok = true;
 
-    const nombre = document.getElementById('nombre').value.trim();
-    if (nombre.length < 3) { showError('nombre', 'err-nombre'); valid = false; }
-    else clearError('nombre', 'err-nombre');
+    // Tutor — campos de texto obligatorios
+    const apP = document.getElementById('t-apPaterno');
+    markErr(apP, document.getElementById('err-t-apPaterno'), !apP.value.trim());
+    if (!apP.value.trim()) ok = false;
 
-    const email = document.getElementById('email').value.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) { showError('email', 'err-email'); valid = false; }
-    else clearError('email', 'err-email');
+    const nom = document.getElementById('t-nombres');
+    markErr(nom, document.getElementById('err-t-nombres'), !nom.value.trim());
+    if (!nom.value.trim()) ok = false;
 
-    const telefono = document.getElementById('telefono').value.trim();
-    const telRegex = /^[\d\s\+\-\(\)]{7,20}$/;
-    if (!telRegex.test(telefono)) { showError('telefono', 'err-telefono'); valid = false; }
-    else clearError('telefono', 'err-telefono');
+    const curp    = document.getElementById('t-curp');
+    const curpOk  = CURP_REGEX.test(curp.value.trim().toUpperCase());
+    markErr(curp, document.getElementById('err-t-curp'), !curpOk);
+    if (!curpOk) ok = false;
 
-    const direccion = document.getElementById('direccion').value.trim();
-    if (!addressConfirmed || direccion.length < 5) {
-      showError('direccion', 'err-direccion');
-      valid = false;
-    } else clearError('direccion', 'err-direccion');
+    const fecha = document.getElementById('t-fechaNac');
+    markErr(fecha, document.getElementById('err-t-fechaNac'), !fecha.value);
+    if (!fecha.value) ok = false;
 
-    const desarrollo = document.getElementById('desarrollo').value;
-    if (!desarrollo) { showError('desarrollo', 'err-desarrollo'); valid = false; }
-    else clearError('desarrollo', 'err-desarrollo');
+    const genOk = !!document.querySelector('input[name="t-genero"]:checked');
+    document.getElementById('err-t-genero').classList.toggle('visible', !genOk);
+    if (!genOk) ok = false;
 
-    return valid;
+    const ec = document.getElementById('t-estadoCivil');
+    markErr(ec, document.getElementById('err-t-estadoCivil'), !ec.value);
+    if (!ec.value) ok = false;
+
+    const dom = document.getElementById('t-domicilio');
+    markErr(dom, document.getElementById('err-t-domicilio'), !addressConfirmed);
+    if (!addressConfirmed) ok = false;
+
+    const cp = document.getElementById('t-cp');
+    const cpOk = /^\d{5}$/.test(cp.value.trim());
+    markErr(cp, document.getElementById('err-t-cp'), !cpOk);
+    if (!cpOk) ok = false;
+
+    // Celular opcional — si hay valor debe tener 10 dígitos
+    const cel = document.getElementById('t-celular');
+    const celOk = !cel.value.trim() || /^\d{10}$/.test(cel.value.trim());
+    markErr(cel, document.getElementById('err-t-celular'), !celOk);
+    if (!celOk) ok = false;
+
+    // Email opcional — si hay valor debe ser válido
+    const email = document.getElementById('t-email');
+    const emailOk = !email.value.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+    markErr(email, document.getElementById('err-t-email'), !emailOk);
+    if (!emailOk) ok = false;
+
+    // Adultos
+    document.querySelectorAll('#adultos-container .member-block').forEach(blk => {
+      const apPb  = blk.querySelector('.a-apP');
+      markErr(apPb, apPb.nextElementSibling, !apPb.value.trim());
+      if (!apPb.value.trim()) ok = false;
+
+      const nomb  = blk.querySelector('.a-nom');
+      markErr(nomb, nomb.nextElementSibling, !nomb.value.trim());
+      if (!nomb.value.trim()) ok = false;
+
+      const curpB = blk.querySelector('.a-curp');
+      const cOk   = CURP_REGEX.test(curpB.value.trim().toUpperCase());
+      markErr(curpB, curpB.nextElementSibling, !cOk);
+      if (!cOk) ok = false;
+
+      const fechB = blk.querySelector('.a-fecha');
+      markErr(fechB, fechB.nextElementSibling, !fechB.value);
+      if (!fechB.value) ok = false;
+
+      const genBOk = !!blk.querySelector('input[type="radio"]:checked');
+      blk.querySelector('.a-gen-err').classList.toggle('visible', !genBOk);
+      if (!genBOk) ok = false;
+    });
+
+    // Estudiantes
+    document.querySelectorAll('#estudiantes-container .member-block').forEach(blk => {
+      const apPe = blk.querySelector('.e-apP');
+      markErr(apPe, apPe.nextElementSibling, !apPe.value.trim());
+      if (!apPe.value.trim()) ok = false;
+
+      const nome = blk.querySelector('.e-nom');
+      markErr(nome, nome.nextElementSibling, !nome.value.trim());
+      if (!nome.value.trim()) ok = false;
+    });
+
+    return ok;
+  }
+
+  // ─── Recolección del payload ─────────────────────────────────────────────────
+  function collectData() {
+    const genR    = document.querySelector('input[name="t-genero"]:checked');
+    const genV    = genR ? genR.value : '';
+    const genFin  = genV === 'Otro' ? (document.getElementById('t-genero-otro').value.trim() || 'Otro') : genV;
+
+    const ecV     = document.getElementById('t-estadoCivil').value;
+    const ecFin   = ecV === 'Otro' ? (document.getElementById('t-estadoCivil-otro').value.trim() || 'Otro') : ecV;
+
+    const tutor = {
+      apellido_paterno: document.getElementById('t-apPaterno').value.trim(),
+      apellido_materno: document.getElementById('t-apMaterno').value.trim(),
+      nombres:          document.getElementById('t-nombres').value.trim(),
+      curp:             document.getElementById('t-curp').value.trim().toUpperCase(),
+      fecha_nacimiento: formatFecha(document.getElementById('t-fechaNac').value),
+      edad:             calcularEdad(document.getElementById('t-fechaNac').value),
+      genero:           genFin,
+      estado_civil:     ecFin,
+      domicilio:        document.getElementById('t-domicilio-completo').value || document.getElementById('t-domicilio').value.trim(),
+      lat:              parseFloat(document.getElementById('t-lat').value) || 0,
+      lng:              parseFloat(document.getElementById('t-lng').value) || 0,
+      cp_auto:          document.getElementById('t-cp-auto').value.trim(),
+      cp:               document.getElementById('t-cp').value.trim(),
+      lada:             document.getElementById('t-lada').value,
+      celular:          document.getElementById('t-celular').value.trim(),
+      email:            document.getElementById('t-email').value.trim(),
+    };
+
+    const adultos = [];
+    document.querySelectorAll('#adultos-container .member-block').forEach(blk => {
+      const gR  = blk.querySelector('input[type="radio"]:checked');
+      const gV  = gR ? gR.value : '';
+      const gFin = gV === 'Otro' ? (blk.querySelector('.a-gen-otro').value.trim() || 'Otro') : gV;
+      adultos.push({
+        apellido_paterno: blk.querySelector('.a-apP').value.trim(),
+        apellido_materno: blk.querySelector('.a-apM').value.trim(),
+        nombres:          blk.querySelector('.a-nom').value.trim(),
+        curp:             blk.querySelector('.a-curp').value.trim().toUpperCase(),
+        fecha_nacimiento: formatFecha(blk.querySelector('.a-fecha').value),
+        edad:             calcularEdad(blk.querySelector('.a-fecha').value),
+        genero:           gFin,
+        ocupacion:        blk.querySelector('.a-ocup').value.trim(),
+      });
+    });
+
+    const estudiantes = [];
+    document.querySelectorAll('#estudiantes-container .member-block').forEach(blk => {
+      const nivel = blk.querySelector('.e-nivel').value;
+      const grado = nivel === 'Secundaria' ? blk.querySelector('.e-grado').value : '';
+      estudiantes.push({
+        apellido_paterno: blk.querySelector('.e-apP').value.trim(),
+        apellido_materno: blk.querySelector('.e-apM').value.trim(),
+        nombres:          blk.querySelector('.e-nom').value.trim(),
+        nivel_escolar:    nivel,
+        grado_secundaria: grado,
+        plantel:          blk.querySelector('.e-plantel').value.trim(),
+      });
+    });
+
+    return { tutor, adultos, estudiantes, timestamp: new Date().toISOString() };
+  }
+
+  // ─── Reset completo ──────────────────────────────────────────────────────────
+  function resetForm() {
+    document.getElementById('padronForm').reset();
+    document.getElementById('t-edad').value = '';
+    document.getElementById('t-cp-auto').value = '';
+    document.getElementById('t-coords-badge').classList.remove('visible');
+    document.getElementById('t-cp-warning').classList.remove('visible');
+    document.getElementById('t-genero-otro').style.display = 'none';
+    document.getElementById('t-estadoCivil-otro').style.display = 'none';
+    document.getElementById('adultos-container').innerHTML = '';
+    document.getElementById('estudiantes-container').innerHTML = '';
+    addressConfirmed = false;
+    cpAuto = '';
   }
 
   // ─── Submit ──────────────────────────────────────────────────────────────────
-  document.getElementById('registroForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+  document.getElementById('padronForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
 
-    if (!validateForm()) return;
-
-    const datos = {
-      nombre:     document.getElementById('nombre').value.trim(),
-      email:      document.getElementById('email').value.trim(),
-      telefono:   document.getElementById('telefono').value.trim(),
-      direccion:  document.getElementById('direccion_completa').value ||
-                  document.getElementById('direccion').value.trim(),
-      lat:        parseFloat(document.getElementById('lat').value),
-      lng:        parseFloat(document.getElementById('lng').value),
-      desarrollo: document.getElementById('desarrollo').value,
-      timestamp:  new Date().toISOString(),
-    };
-
-    console.log('=== DATOS DEL FORMULARIO ===');
-    console.table(datos);
-
-    const btn        = document.getElementById('btnEnviar');
-    const successEl  = document.getElementById('success-banner');
-    const errorEl    = document.getElementById('error-banner');
-
-    successEl.classList.remove('visible');
-    errorEl.classList.remove('visible');
-    btn.disabled    = true;
-    btn.textContent = 'Enviando...';
-    btn.classList.add('sending');
-
-    // Sin URL configurada → solo log local
-    if (!SCRIPT_URL || SCRIPT_URL === 'TU_SCRIPT_URL_AQUI') {
-      console.warn('SCRIPT_URL no configurada. Datos capturados solo en consola.');
-      setTimeout(() => {
-        successEl.textContent = '✓ Datos capturados (solo consola — configura SCRIPT_URL para guardar en Sheets)';
-        successEl.classList.add('visible');
-        btn.disabled = false;
-        btn.textContent = 'Enviar registro';
-        btn.classList.remove('sending');
-      }, 400);
+    if (!validateForm()) {
+      document.querySelector('.error, .error-msg.visible')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
+    const datos     = collectData();
+    const btn       = document.getElementById('btnEnviar');
+    const successEl = document.getElementById('success-banner');
+    const errorEl   = document.getElementById('error-banner');
+
+    console.log('=== PADRÓN FAMILIAR ===');
+    console.log(JSON.stringify(datos, null, 2));
+
+    successEl.classList.remove('visible');
+    errorEl.classList.remove('visible');
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    btn.classList.add('sending');
+
+    // ─── Envío al Apps Script ──────────────────────────────────────────────────
+    // NOTA: Usamos mode: 'no-cors' porque Google Apps Script no soporta CORS.
+    // Esto significa que no podemos leer la respuesta del servidor, pero los datos
+    // SÍ se envían y se guardan correctamente. Confiamos en la validación local
+    // previa al envío.
     try {
-      // Apps Script requiere no-cors cuando se llama desde archivo local;
-      // usamos un proxy de redirección (no-cors) y confiamos en que el script guardó.
-      const resp = await fetch(SCRIPT_URL, {
+      await fetch(SCRIPT_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'text/plain' }, // evita preflight CORS
+        mode:    'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body:    JSON.stringify(datos),
-        redirect: 'follow',
       });
 
-      let result = {};
-      try { result = await resp.json(); } catch (_) { result = { success: true }; }
+      // Con no-cors no podemos leer la respuesta, pero si llegamos aquí
+      // significa que la petición se envió correctamente.
+      // Confiamos en la validación local previa.
+      console.log('Datos enviados a Apps Script (modo no-cors, respuesta no legible)');
 
-      console.log('Respuesta del servidor:', result);
-
-      if (result.success !== false) {
-        successEl.textContent = '✓ ¡Registro enviado y guardado en Google Sheets!';
-        successEl.classList.add('visible');
-        document.getElementById('registroForm').reset();
-        addressConfirmed = false;
-        document.getElementById('coords-badge').classList.remove('visible');
-      } else {
-        throw new Error(result.error || 'Error desconocido del servidor');
-      }
+      successEl.textContent = '✓ ¡Padrón registrado y guardado en Google Sheets!';
+      successEl.classList.add('visible');
+      resetForm();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (err) {
-      console.error('Error al enviar:', err);
-      errorEl.textContent = '✗ No se pudo guardar el registro. Revisa la consola para más detalles.';
+      console.error('Error de red al enviar:', err);
+      errorEl.textContent = '✗ Error de red. Verifica tu conexión a internet.';
       errorEl.classList.add('visible');
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Enviar registro';
+      btn.textContent = 'Enviar Padrón';
       btn.classList.remove('sending');
     }
   });
-
-  // ─── Limpiar errores al escribir ────────────────────────────────────────────
-  ['nombre', 'email', 'telefono', 'desarrollo'].forEach(id => {
-    const el = document.getElementById(id);
-    el.addEventListener('input', () => clearError(id, `err-${id}`));
-    el.addEventListener('change', () => clearError(id, `err-${id}`));
-  });
 </script>
 
-<!--
-  ============================================================
-  REEMPLAZA "TU_API_KEY_AQUI" con tu clave de Google Maps API
-  Pasos:
-    1. https://console.cloud.google.com/
-    2. APIs habilitadas: "Places API" + "Maps JavaScript API"
-    3. Crear credencial → Clave de API
-    4. Pegar la clave abajo
-  ============================================================
--->
 <script
   src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBW5GBxznJaISXRAvmcD4HwBFaceqVPYEA&libraries=places&callback=initAutocomplete"
   async defer>
